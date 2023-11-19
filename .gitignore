@@ -1,3 +1,7 @@
+# Test temp folder
+tests/temp/
+
+
 # Django #
 *.log
 *.pot
