@@ -1,6 +1,6 @@
 from typing import List
 
-from filelineindex.core.abstract import LineBatchStorage
+from filelineindex.core.abstract import LineBatchStorage, LineIndex
 
 
 class IndexData:
@@ -9,7 +9,7 @@ class IndexData:
         self.start_lines: List[str] = start_lines
 
 
-class LineIndex:
+class LineBatchIndex(LineIndex):
     def __init__(self, data: IndexData, batch_storage: LineBatchStorage):
         self.__data: IndexData = data
         self.__batch_storage: LineBatchStorage = batch_storage
@@ -21,9 +21,10 @@ class LineIndex:
         line += "\n"
         if line < self.__data.start_lines[0] or self.__data.last_line < line:
             return False
-        batch_number = LineIndex.__search_binary(line, self.__data.start_lines)
+        batch_number = LineBatchIndex.__search_binary(line, self.__data.start_lines)
+        # TODO?: Find the line using file.seek() instead or reading all lines.
         file_lines = self.__batch_storage.get(batch_number)
-        line_index = LineIndex.__search_binary(line, file_lines)
+        line_index = LineBatchIndex.__search_binary(line, file_lines)
         return line == file_lines[line_index]
 
     @staticmethod
