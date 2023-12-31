@@ -1,6 +1,8 @@
 from typing import List
 
-from filelineindex.core.abstract import LineBatchedStorage, LineIndex
+from filelineindex.abstract import LineIndex
+from filelineindex.core.algorithm import bs_has, bs_lower
+from filelineindex.core.batched_storage import LineBatchedStorage
 
 
 class BatchKeyData:
@@ -34,28 +36,9 @@ class LineBatchedIndex(LineIndex):
         line += "\n"
         if line < self.__data.batch_start_lines[0] or self.__data.last_line < line:
             return False
-        batch_number = LineBatchedIndex.__search_binary(
-            line, self.__data.batch_start_lines
-        )
+        batch_number = bs_lower(line, self.__data.batch_start_lines)
+        if batch_number is None:
+            return False
         # TODO?: Find the line using file.seek() instead or reading all lines.
         file_lines = self.__storage.get(batch_number)
-        line_index = LineBatchedIndex.__search_binary(line, file_lines)
-        return line == file_lines[line_index]
-
-    @staticmethod
-    def __search_binary(line: str, lines: List[str]) -> int:
-        """
-        Perform binary search on a sorted list of lines.
-
-        :param line: The line to search for.
-        :param lines: The sorted list of lines.
-        :return: The index of the found line.
-        """
-        left_index, right_index = 0, len(lines) - 1
-        while left_index < right_index:
-            mid_index = (left_index + right_index + 1) // 2
-            if line < lines[mid_index]:
-                right_index = mid_index - 1
-            else:
-                left_index = mid_index
-        return left_index
+        return bs_has(line, file_lines)

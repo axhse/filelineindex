@@ -1,5 +1,7 @@
-from typing import Callable, Generator, Iterable, List, Optional, Tuple
+from typing import Callable, Generator, List, Optional, Tuple
 
+from filelineindex.core.batched_index import BatchKeyData, LineBatchedIndex, LineIndex
+from filelineindex.core.batched_storage import FileLineBatchedStorage
 from filelineindex.core.filetools import (
     UTF_8,
     join_paths,
@@ -8,9 +10,8 @@ from filelineindex.core.filetools import (
     remove_dir,
     sizeof,
     write,
+    yield_from_files,
 )
-from filelineindex.core.index import BatchKeyData, LineBatchedIndex, LineIndex
-from filelineindex.core.storage import FileLineBatchedStorage
 
 
 class IndexerOptions:
@@ -131,7 +132,7 @@ class Indexer:
         if len(file_paths) == 0:
             raise ValueError("No files to index.")
         make_empty_dir(self.__resource_dir)
-        return self.__index(lambda: self.__yield_file_lines(file_paths))
+        return self.__index(lambda: yield_from_files(file_paths))
 
     def index_lines(self, lines: List[str]) -> LineIndex:
         """
@@ -146,10 +147,17 @@ class Indexer:
         :return: An index created for the input lines.
         :raises ValueError: If no lines to index.
         """
+
+        def __yield_lines() -> Generator[str, None, None]:
+            for line in lines:
+                if line[-1] != "\n":
+                    line += "\n"
+                yield line
+
         make_empty_dir(self.__resource_dir)
         if len(lines) == 0:
             raise ValueError("No lines to index.")
-        return self.__index(lambda: self.__yield_lines(lines))
+        return self.__index(lambda: __yield_lines())
 
     def load_index(self) -> LineIndex:
         """
@@ -160,19 +168,6 @@ class Indexer:
         index_data = self.__read_index_data()
         batch_storage = FileLineBatchedStorage(self.__read_storage_data())
         return LineBatchedIndex(index_data, batch_storage)
-
-    @staticmethod
-    def __yield_file_lines(file_paths: Iterable[str]) -> Generator[str, None, None]:
-        for file_path in file_paths:
-            with open(file_path, "r") as file:
-                yield from file
-
-    @staticmethod
-    def __yield_lines(lines: Iterable[str]) -> Generator[str, None, None]:
-        for line in lines:
-            if line[-1] != "\n":
-                line += "\n"
-            yield line
 
     def __find_optimal_file_count(self, line_count: int, total_size: int) -> int:
         # TODO: Replace to a formula.

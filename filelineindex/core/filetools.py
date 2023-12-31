@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Iterable, List, Union
+from typing import Generator, Iterable, List, Union
 
 UTF_8: str = "utf-8"
 
@@ -210,3 +210,25 @@ def write(lines: Union[str, Iterable[str]], path: str, append=False) -> None:
             file.write(lines)
         else:
             file.writelines(lines)
+
+
+def yield_from_files(file_paths: Iterable[str]) -> Generator[str, None, None]:
+    """
+    Yield lines from multiple files.
+
+    :param file_paths: An iterable of file paths.
+    :return: Line generator.
+    """
+    for file_path in file_paths:
+        with open(file_path, "r", encoding=UTF_8) as file:
+            yield from file
+
+
+def yield_from_file(file_path: str) -> Generator[str, None, None]:
+    """
+    Yield lines from a single file.
+
+    :param file_path: The path to the file.
+    :return: Line generator.
+    """
+    return yield_from_files([file_path])

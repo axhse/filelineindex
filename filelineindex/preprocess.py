@@ -11,6 +11,7 @@ from filelineindex.core.filetools import (
     make_dir,
     sizeof,
     write,
+    yield_from_file,
 )
 
 
@@ -83,11 +84,6 @@ def split_file(input_path: str, output_dir: str, strategy: SplitStrategy) -> Lis
     :return: List of paths to the output batches.
     """
 
-    def _yield_from_file() -> Generator[str, None, None]:
-        with open(input_path, "r", encoding=UTF_8) as file:
-            for line in file:
-                yield line
-
     def _yield_size_limit(total_byte_count: int) -> Generator[int, None, None]:
         rest_size = yield None
         if isinstance(strategy, SplitToSize):
@@ -108,7 +104,7 @@ def split_file(input_path: str, output_dir: str, strategy: SplitStrategy) -> Lis
     file_index = 0
     basename = get_basename(input_path)
 
-    line_generator = _yield_from_file()
+    line_generator = yield_from_file(input_path)
     limit_generator = _yield_size_limit(count_bytes(input_path))
     next(limit_generator)
     try:
@@ -190,12 +186,6 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
     :param output_dir: Directory to store the result batch files.
     :return: List of paths to the result output batch files.
     """
-
-    def _yield_from_file(path) -> Generator[str, None, None]:
-        with open(path, "r", encoding=UTF_8) as file:
-            for line in file:
-                yield line
-
     if any(get_parent_path(path) == output_dir for path in input_paths):
         raise ValueError("The output directory must differ from the input directory.")
     # TODO: Optimize using tree-based structures.
@@ -203,7 +193,7 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
     output_paths = list()
     values_with_generators: List[Tuple[str, Generator[str, None, None]]] = list()
     total_line_count = count_lines(input_paths)
-    generators = [_yield_from_file(path) for path in input_paths]
+    generators = [yield_from_file(path) for path in input_paths]
     generator_count = len(generators)
     for generator in generators:
         try:

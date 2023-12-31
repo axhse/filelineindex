@@ -48,10 +48,11 @@ some_index = Indexer("/tmp/some_index_resources").load_index()
 
 ## Code Structure
 
+- **abstract:** Specifies common abstract base classes.
 - **indexer:** Describes the index builder.
 - **preprocess:** Describes tools to prepare files to be indexed.
 
-- **core/abstract:** Specifies common abstract base classes.
+- **core/algorithm:** Describes common algorithms.
+- **core/batched_index:** Describes the line index implemented with batched storage.
+- **core/batched_storage:** Describes batched line storage.
 - **core/filetools:** Describes auxiliary file tools for other modules.
-- **core/index:** Describes the line index implemented with batched storage.
-- **core/storage:** Describes batched line storage.

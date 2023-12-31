@@ -2,29 +2,6 @@ from abc import ABC, abstractmethod
 from typing import List
 
 
-class LineIndex(ABC):
-    """Abstract base class for line index implementations."""
-
-    def __contains__(self, line: str) -> bool:
-        """
-        Check if a specific line is present in the index.
-
-        :param line: The line to check.
-        :return: True if the line is present, False otherwise.
-        """
-        return self.has(line)
-
-    @abstractmethod
-    def has(self, line: str) -> bool:
-        """
-        Check if a specific line is present in the index.
-
-        :param line: The line to check.
-        :return: True if the line is present, False otherwise.
-        """
-        pass
-
-
 class LineBatchedStorage(ABC):
     """Abstract base class for line batched storage implementations."""
 
@@ -46,3 +23,12 @@ class LineBatchedStorage(ABC):
         :return: A list of lines belonging to the specified batch.
         """
         pass
+
+
+class FileLineBatchedStorage(LineBatchedStorage):
+    def __init__(self, file_paths: List[str]):
+        self.__file_paths: List[str] = file_paths
+
+    def get(self, batch_number: int) -> List[str]:
+        with open(self.__file_paths[batch_number], "r") as data_file:
+            return data_file.readlines()
