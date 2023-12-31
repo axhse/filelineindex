@@ -1,9 +1,9 @@
 from typing import List
 
-from filelineindex.core.abstract import LineBatchStorage
+from filelineindex.core.abstract import LineBatchedStorage
 
 
-class FileLineBatchStorage(LineBatchStorage):
+class FileLineBatchedStorage(LineBatchedStorage):
     def __init__(self, file_paths: List[str]):
         self.__file_paths: List[str] = file_paths
 

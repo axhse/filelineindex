@@ -4,9 +4,9 @@ from filelineindex.preprocess import (
     SplitToSize,
     are_valid_lines,
     fix_lines,
+    merge_sorted_files,
     preprocess_lines,
     sort_files_separately,
-    sort_files_together,
     sort_single_file,
     sort_single_file_to_dir,
     split_file,
@@ -83,8 +83,7 @@ def test_sort_files_separately(temp_dir):
 
 
 def test_sort_files_together(temp_dir):
-    input_paths = get_input_paths("files_to_sort")
-    separate_sort_dir = join_paths(temp_dir, "sort")
-    sort_files_together(input_paths, temp_dir, separate_sort_dir)
-    expected_content = {"0": "\n 2\n1\n", "1": "2\n3\n4\n"}
+    input_paths = get_input_paths("sorted_files_to_merge")
+    merge_sorted_files(input_paths, temp_dir)
+    expected_content = {"0": "1\n2\n", "1": "3\n4\n"}
     assert_has_content(temp_dir, expected_content)

@@ -9,19 +9,32 @@ from filelineindex.core.filetools import (
     get_parent_path,
     join_paths,
     make_dir,
-    remove_dir,
     sizeof,
     write,
 )
 
 
 class SplitToBatches:
+    """Represents a strategy to split a file into a specified number of batches."""
+
     def __init__(self, number: int):
+        """
+        Initialize the SplitToBatches strategy with a specified number of batches.
+
+        :param number: The number of batches to split the file into.
+        """
         self.number: int = number
 
 
 class SplitToSize:
+    """Represents a strategy to split a file based on a specified size."""
+
     def __init__(self, size: FileSize):
+        """
+        Initialize the SplitToSize strategy with a target size.
+
+        :param size: The target size for each split file.
+        """
         self.size: FileSize = size
 
 
@@ -29,18 +42,47 @@ SplitStrategy: Type = Union[SplitToBatches, SplitToSize]
 
 
 def are_valid_lines(lines: Iterable[str]) -> bool:
+    """
+    Check if a set of lines is valid:
+
+    --  Each line does not contain newline characters.
+
+    :param lines: Iterable of lines to check.
+    :return: True if all lines are valid, False otherwise.
+    """
     return all("\n" not in line for line in lines)
 
 
 def fix_lines(lines: Iterable[str]) -> List[str]:
+    """
+    Remove newline characters from each line in the given iterable of lines.
+
+    :param lines: Iterable of lines to fix.
+    :return: List of lines with newline characters removed.
+    """
     return [line.replace("\n", "") for line in lines]
 
 
 def preprocess_lines(lines: Iterable[str]) -> List[str]:
+    """
+    Preprocess a set of lines by removing duplicates and sorting them.
+
+    :param lines: Iterable of lines to preprocess.
+    :return: List of unique and sorted lines.
+    """
     return sorted(set(lines))
 
 
 def split_file(input_path: str, output_dir: str, strategy: SplitStrategy) -> List[str]:
+    """
+    Split a file into batches based on the specified strategy.
+
+    :param input_path: Path to the input file.
+    :param output_dir: Directory to store the output batches.
+    :param strategy: Split strategy.
+    :return: List of paths to the output batches.
+    """
+
     def _yield_from_file() -> Generator[str, None, None]:
         with open(input_path, "r", encoding=UTF_8) as file:
             for line in file:
@@ -96,39 +138,64 @@ def split_file(input_path: str, output_dir: str, strategy: SplitStrategy) -> Lis
 
 
 def sort_single_file(input_path: str, output_path: Optional[str] = None) -> None:
+    """
+    Sort the lines of a single file and optionally save the result to another file.
+
+    :param input_path: Path to the input file.
+    :param output_path: Optional path to the output file. If not provided, the input file is overwritten.
+    """
     output_path = output_path or input_path
     with open(input_path, "r", encoding=UTF_8) as file:
         lines = set(file)
     write(sorted(lines), output_path)
 
 
-def sort_single_file_to_dir(input_paths: str, output_dir: str) -> str:
+def sort_single_file_to_dir(input_path: str, output_dir: str) -> str:
+    """
+    Sort the lines of a single file and save the result to a file in the specified directory.
+
+    :param input_path: Path to the input file.
+    :param output_dir: Directory to store the sorted output file.
+    :return: Path to the sorted output file.
+    """
     make_dir(output_dir)
-    output_path = join_paths(output_dir, get_basename(input_paths))
-    sort_single_file(input_paths, output_path)
+    output_path = join_paths(output_dir, get_basename(input_path))
+    sort_single_file(input_path, output_path)
     return output_path
 
 
 def sort_files_separately(input_paths: Iterable[str], output_dir: str) -> List[str]:
+    """
+    Sort multiple files separately and save the sorted results in the specified directory.
+
+    Example:
+    If the function is applied to input files with contents "4\n1\n2\n" and "3\n2\n", the output files will store "1\n2\n4\n" and "2\n3\n".
+
+    :param input_paths: Iterable of paths to input files.
+    :param output_dir: Directory to store the sorted output files.
+    :return: List of paths to the sorted output files.
+    """
     return [sort_single_file_to_dir(path, output_dir) for path in input_paths]
 
 
-def sort_files_together(
-    input_paths: Iterable[str],
-    output_dir: str,
-    separate_sort_dir: Optional[str] = None,
-) -> List[str]:
-    def _remove_separate_sort_dir() -> None:
-        if separate_sort_dir is not None:
-            remove_dir(separate_sort_dir)
+def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]:
+    """
+    Sort lines from multiple input files by merging **previously separately sorted** files. Save the sorted lines as batches in the specified output directory.
+
+    Example: If the function is applied to input files with contents "1\n2\n4\n" and "2\n3\n", the output files will store "1\n2\n" and "3\n4\n".
+
+    Note: The system must have enough remaining space to store the result (as much as input data size).
+
+    :param input_paths: Iterable of paths to input files.
+    :param output_dir: Directory to store the result batch files.
+    :return: List of paths to the result output batch files.
+    """
 
     def _yield_from_file(path) -> Generator[str, None, None]:
         with open(path, "r", encoding=UTF_8) as file:
             for line in file:
                 yield line
 
-    if separate_sort_dir is not None:
-        input_paths = sort_files_separately(input_paths, separate_sort_dir)
     if any(get_parent_path(path) == output_dir for path in input_paths):
         raise ValueError("The output directory must differ from the input directory.")
     # TODO: Optimize using tree-based structures.
@@ -173,7 +240,5 @@ def sort_files_together(
                 except StopIteration:
                     values_with_generators.pop(-1)
                     if len(values_with_generators) == 0:
-                        _remove_separate_sort_dir()
                         return output_paths
-    _remove_separate_sort_dir()
     return output_paths
