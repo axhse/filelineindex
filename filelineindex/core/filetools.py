@@ -1,8 +1,13 @@
 import os
 import shutil
-from typing import Generator, Iterable, List, Union
+import uuid
+from typing import Generator, Iterable, List, Optional, Union
 
+# The name of 8-bit Unicode encoding.
 UTF_8: str = "utf-8"
+
+# The recommended maximum limit for the number of files in the operating system.
+RECOMMENDED_OS_FILE_LIMIT: int = 1_000_000_000
 
 
 class FileSize:
@@ -40,7 +45,34 @@ class FileSize:
         return self.__total_bytes
 
 
-def sizeof(line: str) -> int:
+def get_uuid() -> str:
+    """
+    Generate a random UUID.
+
+    :return: A generated UUID string **without dashes**.
+    """
+    return uuid.uuid4().hex.replace("-", "")
+
+
+def convert_file_number(
+    number: int, group_size: int = RECOMMENDED_OS_FILE_LIMIT
+) -> str:
+    """
+    Convert a file indexing number to a hex string with fixed length, considering file group size.
+
+    :param number: The file indexing number to be converted.
+    :param group_size: The group size.
+    :return: A string representation of the file indexing number.
+    """
+    number_width = 0
+    group_size -= 1
+    while group_size > 0:
+        number_width += 1
+        group_size //= 16
+    return hex(number)[2:].upper().rjust(number_width, "0")
+
+
+def size_of_line(line: str) -> int:
     """
     Get the size of a unicode string in bytes.
 
@@ -58,6 +90,19 @@ def join_paths(*paths: str) -> str:
     :return: Joined path.
     """
     return os.path.join(*paths)
+
+
+def get_file_paths_in_dir(dir_path: str) -> List[str]:
+    """
+    Get a list of all file paths in a directory.
+
+    :param dir_path: Path to the directory.
+    :return: List of file paths in the directory.
+    """
+    if not os.path.isdir(dir_path):
+        return list()
+    path_root, _, file_names = next(os.walk(dir_path))
+    return [os.path.join(path_root, file_name) for file_name in file_names]
 
 
 def get_basename(path: str) -> str:
@@ -78,6 +123,38 @@ def get_parent_path(path: str) -> str:
     :return: Parent directory path.
     """
     return join_paths(*os.path.split(path)[:-1])
+
+
+def yield_from_files(file_paths: Iterable[str]) -> Generator[str, None, None]:
+    """
+    Yield lines from multiple files.
+
+    :param file_paths: An iterable of file paths.
+    :return: Line generator.
+    """
+    for file_path in file_paths:
+        with open(file_path, "r", encoding=UTF_8) as file:
+            yield from file
+
+
+def yield_from_file(path: str) -> Generator[str, None, None]:
+    """
+    Yield lines from a single file.
+
+    :param path: The path to the file.
+    :return: Line generator.
+    """
+    return yield_from_files([path])
+
+
+def is_file_empty(path: str) -> bool:
+    """
+    Check if a file is empty.
+
+    :param path: The path to the file.
+    :return: True if the file is empty, False otherwise.
+    """
+    return os.path.getsize(path) == 0
 
 
 def count_bytes(paths: Union[str, Iterable[str]]) -> int:
@@ -196,6 +273,18 @@ def read_lines(path: str) -> List[str]:
         return file.readlines()
 
 
+def read_first_line(path: str) -> Optional[str]:
+    """
+    Read the first line of a file.
+
+    :param path: File path.
+    :return: The line if found, None if the file is empty.
+    """
+    if is_file_empty(path):
+        return None
+    return next(yield_from_file(path))
+
+
 def write(lines: Union[str, Iterable[str]], path: str, append=False) -> None:
     """
     Write lines to a file.
@@ -210,25 +299,3 @@ def write(lines: Union[str, Iterable[str]], path: str, append=False) -> None:
             file.write(lines)
         else:
             file.writelines(lines)
-
-
-def yield_from_files(file_paths: Iterable[str]) -> Generator[str, None, None]:
-    """
-    Yield lines from multiple files.
-
-    :param file_paths: An iterable of file paths.
-    :return: Line generator.
-    """
-    for file_path in file_paths:
-        with open(file_path, "r", encoding=UTF_8) as file:
-            yield from file
-
-
-def yield_from_file(file_path: str) -> Generator[str, None, None]:
-    """
-    Yield lines from a single file.
-
-    :param file_path: The path to the file.
-    :return: Line generator.
-    """
-    return yield_from_files([file_path])

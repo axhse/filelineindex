@@ -1,34 +1,50 @@
-from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
+
+from filelineindex.abstract import LineBatch, LineBatchedStorage
+from filelineindex.core.algorithm import bs_has, bs_lower_index, bs_upper_index
+from filelineindex.core.filetools import read_first_line, read_lines
 
 
-class LineBatchedStorage(ABC):
-    """Abstract base class for line batched storage implementations."""
+class FileLineBatch(LineBatch):
+    def __init__(self, file_path: str):
+        self.__file_path: str = file_path
+        self.__first_line = None
+        self.__last_line = None
 
-    def __getitem__(self, batch_number: int) -> List[str]:
-        """
-        Get a batch of lines based on the batch number.
+    @property
+    def smallest(self) -> Optional[str]:
+        if self.__first_line is None:
+            self.__first_line = read_first_line(self.__file_path)
+        return self.__first_line
 
-        :param batch_number: The batch number to retrieve.
-        :return: A list of lines belonging to the specified batch.
-        """
-        return self.get(batch_number)
+    @property
+    def greatest(self) -> Optional[str]:
+        if self.__last_line is None:
+            lines = self.__load_lines()
+            self.__last_line = lines[-1] if len(lines) > 0 else None
+        return self.__last_line
 
-    @abstractmethod
-    def get(self, batch_number: int) -> List[str]:
-        """
-        Get a batch of lines based on the batch number.
+    def has(self, line: str) -> bool:
+        # TODO?: Try to use file.seek() instead of reading all lines.
+        return bs_has(line, self.__load_lines())
 
-        :param batch_number: The batch number to retrieve.
-        :return: A list of lines belonging to the specified batch.
-        """
-        pass
+    def lower(self, line: str) -> Optional[str]:
+        lines = self.__load_lines()
+        index = bs_lower_index(line, lines)
+        return None if index is None else lines[index]
+
+    def upper(self, line: str) -> Optional[str]:
+        lines = self.__load_lines()
+        index = bs_upper_index(line, lines)
+        return None if index is None else lines[index]
+
+    def __load_lines(self) -> List[str]:
+        return read_lines(self.__file_path)
 
 
 class FileLineBatchedStorage(LineBatchedStorage):
     def __init__(self, file_paths: List[str]):
-        self.__file_paths: List[str] = file_paths
+        self.__batches = [FileLineBatch(file_path) for file_path in file_paths]
 
-    def get(self, batch_number: int) -> List[str]:
-        with open(self.__file_paths[batch_number], "r") as data_file:
-            return data_file.readlines()
+    def get(self, batch_number: int) -> FileLineBatch:
+        return self.__batches[batch_number]

@@ -82,8 +82,8 @@ def test_sort_files_separately(temp_dir):
     assert_has_content(temp_dir, expected_content)
 
 
-def test_sort_files_together(temp_dir):
+def test_merge_sorted_files(temp_dir):
     input_paths = get_input_paths("sorted_files_to_merge")
     merge_sorted_files(input_paths, temp_dir)
-    expected_content = {"0": "1\n2\n", "1": "3\n4\n"}
+    expected_content = {"0.batch": "1\n2\n", "1.batch": "3\n4\n"}
     assert_has_content(temp_dir, expected_content)

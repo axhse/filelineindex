@@ -3,13 +3,15 @@ from typing import Generator, Iterable, List, Optional, Tuple, Type, Union
 from filelineindex.core.filetools import (
     UTF_8,
     FileSize,
+    convert_file_number,
     count_bytes,
     count_lines,
     get_basename,
     get_parent_path,
     join_paths,
     make_dir,
-    sizeof,
+    read,
+    size_of_line,
     write,
     yield_from_file,
 )
@@ -74,6 +76,22 @@ def preprocess_lines(lines: Iterable[str]) -> List[str]:
     return sorted(set(lines))
 
 
+def merge_files(
+    input_paths: List[str], output_path: str, special_ending: str = ""
+) -> None:
+    """
+    Merge the contents of multiple text files into a single output file.
+
+    :param input_paths: List of paths to the input text files.
+    :param output_path: Path to the output text file where the merged content will be written.
+    :param special_ending: Optional string used to be written after each file contents.
+                           If not provided, no special ending is written.
+    """
+    with open(output_path, "w", encoding=UTF_8) as output_file:
+        for input_path in input_paths:
+            output_file.write(read(input_path) + special_ending)
+
+
 def split_file(input_path: str, output_dir: str, strategy: SplitStrategy) -> List[str]:
     """
     Split a file into batches based on the specified strategy.
@@ -120,17 +138,53 @@ def split_file(input_path: str, output_dir: str, strategy: SplitStrategy) -> Lis
             output_paths.append(output_path)
             with open(output_path, "w", encoding=UTF_8) as output_file:
                 output_file.write(last_line)
-                processed_size = sizeof(last_line)
+                processed_size = size_of_line(last_line)
                 while True:
                     last_line = next(line_generator)
-                    processed_size += sizeof(last_line)
+                    processed_size += size_of_line(last_line)
                     if processed_size > current_limit:
-                        processed_size -= sizeof(last_line)
+                        processed_size -= size_of_line(last_line)
                         break
                     output_file.write(last_line)
             file_index += 1
     except StopIteration:
         return output_paths
+
+
+def is_file_sorted(file_path: str) -> bool:
+    """
+    Check if the lines in a text file are sorted in ascending order.
+
+    :param file_path: The path to the text file.
+    :return: True if the lines are sorted, False otherwise.
+    """
+    last_line = None
+    with open(file_path, "r", encoding=UTF_8) as file:
+        for line in file:
+            if last_line is not None and line < last_line:
+                return False
+            last_line = line
+    return True
+
+
+def are_ordered_files(file_paths: List[str]) -> bool:
+    """
+    Check if the lines in a list of text files are ordered in ascending order across all files.
+
+    :param file_paths: List of paths to the text files.
+    :return: True if the lines are ordered, False otherwise.
+    """
+    previous_greatest_line = None
+    current_greatest_line = None
+    for file_path in file_paths:
+        with open(file_path, "r", encoding=UTF_8) as file:
+            for line in file:
+                if current_greatest_line is None or current_greatest_line < line:
+                    current_greatest_line = line
+                if previous_greatest_line is not None and line < previous_greatest_line:
+                    return False
+        previous_greatest_line = current_greatest_line
+    return True
 
 
 def sort_single_file(input_path: str, output_path: Optional[str] = None) -> None:
@@ -188,7 +242,6 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
     """
     if any(get_parent_path(path) == output_dir for path in input_paths):
         raise ValueError("The output directory must differ from the input directory.")
-    # TODO: Optimize using tree-based structures.
     make_dir(output_dir)
     output_paths = list()
     values_with_generators: List[Tuple[str, Generator[str, None, None]]] = list()
@@ -206,14 +259,15 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
     last_value = None
     for file_number in range(generator_count):
         current_limit = total_line_count * (file_number + 1) // generator_count
-        output_path = join_paths(output_dir, str(file_number))
+        file_name = f"{convert_file_number(file_number, generator_count)}.batch"
+        output_path = join_paths(output_dir, file_name)
         output_paths.append(output_path)
-        with open(output_path, "w") as temp_file:
+        with open(output_path, "w") as output_file:
             while current_line_index < current_limit:
                 value = values_with_generators[-1][0]
                 if value != last_value:
                     last_value = value
-                    temp_file.write(value)
+                    output_file.write(value)
                     current_line_index += 1
                 try:
                     generator = values_with_generators[-1][1]
@@ -221,6 +275,7 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
                     while value == last_value:
                         value = next(generator)
                     values_with_generators.pop(-1)
+                    # TODO: Optimize using tree-based structures.
                     for index in range(len(values_with_generators) + 1):
                         if (
                             index == len(values_with_generators)

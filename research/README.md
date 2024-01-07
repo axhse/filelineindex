@@ -22,15 +22,15 @@ A single table is used to store the lines as a primary key column.
 #### 2. In-memory Array
 The lines are stored as a sorted in-memory array.
 
-#### 3. Batched Storage
-The lines are stored in a batched way with files.
+#### 3. Batched Files
+The lines are stored in a batched way with files, full batches are loaded to perform binary search.
 
-#### 4. Meta-structure
-Similar to an in-memory array, but file positions of the lines are stored.
+#### 4. Seekable Search
+Same as Batched Files, but file.seek() is used to perform binary search.
 
-|                                  | Database | In-memory array | Batched storage | Meta-structure |
-|----------------------------------|----------|-----------------|-----------------|----------------|
-| High check performance           | ❓        | ❓               | ❓               | ❓              |
-| High update performance          | ✔️       | ✔️              | ❓               | ❓              |
-| Usage memory-efficiency          | ❓        | ❌               | ✔️              | ❌              |
-| Initialization memory-efficiency | ❓        | ❌               | ❌               | ❓              |
+|                                  | Database | In-memory array | Batched files | Seekable Search |
+|----------------------------------|----------|-----------------|---------------|-----------------|
+| High check performance           | ❓        | ❓               | ❓             | ❓               |
+| High update performance          | ✔️       | ✔️              | ❌             | ❌               |
+| Usage memory-efficiency          | ❓        | ❌               | ✔️            | ✔️              |
+| Initialization memory-efficiency | ❓        | ❓               | ❓             | ❓               |

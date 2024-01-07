@@ -1,0 +1,7 @@
+# TODO: Specify.
+
+INDEX_RESOURCE_DIR = ""
+
+PREPROCESSED_FILES = []
+
+LINES_TO_CHECK = []

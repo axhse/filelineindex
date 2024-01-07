@@ -1,7 +1,7 @@
 from typing import List
 
 from filelineindex.abstract import LineIndex
-from filelineindex.core.algorithm import bs_has, bs_lower
+from filelineindex.core.algorithm import bs_lower_index
 from filelineindex.core.batched_storage import LineBatchedStorage
 
 
@@ -36,9 +36,7 @@ class LineBatchedIndex(LineIndex):
         line += "\n"
         if line < self.__data.batch_start_lines[0] or self.__data.last_line < line:
             return False
-        batch_number = bs_lower(line, self.__data.batch_start_lines)
+        batch_number = bs_lower_index(line, self.__data.batch_start_lines)
         if batch_number is None:
             return False
-        # TODO?: Find the line using file.seek() instead or reading all lines.
-        file_lines = self.__storage.get(batch_number)
-        return bs_has(line, file_lines)
+        return self.__storage.get(batch_number).has(line)

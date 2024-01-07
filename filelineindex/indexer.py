@@ -3,12 +3,14 @@ from typing import Callable, Generator, List, Optional, Tuple
 from filelineindex.core.batched_index import BatchKeyData, LineBatchedIndex, LineIndex
 from filelineindex.core.batched_storage import FileLineBatchedStorage
 from filelineindex.core.filetools import (
+    RECOMMENDED_OS_FILE_LIMIT,
     UTF_8,
+    convert_file_number,
     join_paths,
     make_empty_dir,
     read_lines,
     remove_dir,
-    sizeof,
+    size_of_line,
     write,
     yield_from_files,
 )
@@ -17,7 +19,7 @@ from filelineindex.core.filetools import (
 class IndexerOptions:
     """Options for configuring the behavior of the Indexer."""
 
-    FILE_COUNT_LIMITS: Tuple[int, int] = (1, 1_000_000_000)
+    FILE_COUNT_LIMITS: Tuple[int, int] = (1, RECOMMENDED_OS_FILE_LIMIT)
     DEFAULT_MIN_FILE_COUNT: int = 1
     DEFAULT_MAX_FILE_COUNT: int = 1_000_000
 
@@ -185,7 +187,7 @@ class Indexer:
         total_size = 0
         for line in line_generator_creator():
             line_count += 1
-            total_size += sizeof(line)
+            total_size += size_of_line(line)
         if line_count == 0:
             raise ValueError("No lines to index.")
         optimal_file_count = self.__find_optimal_file_count(line_count, total_size)
@@ -200,7 +202,8 @@ class Indexer:
         file_paths = list()
         for file_number in range(optimal_file_count):
             current_limit = total_size * (file_number + 1) // optimal_file_count
-            file_path = join_paths(self.__resource_dir, f"{file_number}.dat")
+            file_name = f"{convert_file_number(file_number, optimal_file_count)}.dat"
+            file_path = join_paths(self.__resource_dir, file_name)
             file_paths.append(file_path)
             with open(file_path, "w", encoding=UTF_8) as data_file:
                 if file_number != 0:
@@ -209,7 +212,7 @@ class Indexer:
                 try:
                     while True:
                         last_line = next(line_generator)
-                        processed_size += sizeof(last_line)
+                        processed_size += size_of_line(last_line)
                         if processed_size > current_limit:
                             break
                         data_file.write(last_line)
