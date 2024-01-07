@@ -285,12 +285,12 @@ def read_first_line(path: str) -> Optional[str]:
     return next(yield_from_file(path))
 
 
-def write(lines: Union[str, Iterable[str]], path: str, append=False) -> None:
+def write(path: str, lines: Union[str, Iterable[str]], append=False) -> None:
     """
     Write lines to a file.
 
-    :param lines: Lines to write (either a string or an iterable of strings).
     :param path: File path.
+    :param lines: Lines to write (either a string or an iterable of strings).
     :param append: Whether to use append mode (default is False).
     """
     mode = "a" if append else "w"

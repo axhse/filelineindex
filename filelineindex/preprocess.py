@@ -15,6 +15,7 @@ from filelineindex.core.filetools import (
     write,
     yield_from_file,
 )
+from filelineindex.progress import Progress, VoidProgress
 
 
 class SplitToBatches:
@@ -89,7 +90,8 @@ def merge_files(
     """
     with open(output_path, "w", encoding=UTF_8) as output_file:
         for input_path in input_paths:
-            output_file.write(read(input_path) + special_ending)
+            output_file.write(read(input_path))
+            output_file.write(special_ending)
 
 
 def split_file(input_path: str, output_dir: str, strategy: SplitStrategy) -> List[str]:
@@ -187,7 +189,7 @@ def are_ordered_files(file_paths: List[str]) -> bool:
     return True
 
 
-def sort_single_file(input_path: str, output_path: Optional[str] = None) -> None:
+def sort_file(input_path: str, output_path: Optional[str] = None) -> None:
     """
     Sort the lines of a single file and optionally save the result to another file.
 
@@ -197,24 +199,12 @@ def sort_single_file(input_path: str, output_path: Optional[str] = None) -> None
     output_path = output_path or input_path
     with open(input_path, "r", encoding=UTF_8) as file:
         lines = set(file)
-    write(sorted(lines), output_path)
+    write(output_path, sorted(lines))
 
 
-def sort_single_file_to_dir(input_path: str, output_dir: str) -> str:
-    """
-    Sort the lines of a single file and save the result to a file in the specified directory.
-
-    :param input_path: Path to the input file.
-    :param output_dir: Directory to store the sorted output file.
-    :return: Path to the sorted output file.
-    """
-    make_dir(output_dir)
-    output_path = join_paths(output_dir, get_basename(input_path))
-    sort_single_file(input_path, output_path)
-    return output_path
-
-
-def sort_files_separately(input_paths: Iterable[str], output_dir: str) -> List[str]:
+def sort_files_separately(
+    input_paths: Iterable[str], output_dir: str, progress: Progress = VoidProgress()
+) -> List[str]:
     """
     Sort multiple files separately and save the sorted results in the specified directory.
 
@@ -223,12 +213,24 @@ def sort_files_separately(input_paths: Iterable[str], output_dir: str) -> List[s
 
     :param input_paths: Iterable of paths to input files.
     :param output_dir: Directory to store the sorted output files.
+    :param progress: An instance of the Progress class to track and report progress. Default is VoidProgress.
     :return: List of paths to the sorted output files.
     """
-    return [sort_single_file_to_dir(path, output_dir) for path in input_paths]
+    progress.report_start()
+    input_paths = list(input_paths)
+    output_paths = list()
+    make_dir(output_dir)
+    for index, input_path in enumerate(input_paths):
+        output_path = join_paths(output_dir, get_basename(input_path))
+        output_paths.append(output_path)
+        sort_file(input_path, output_path)
+        progress.report((index + 1) / len(input_paths))
+    return output_paths
 
 
-def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]:
+def merge_sorted_files(
+    input_paths: Iterable[str], output_dir: str, progress: Progress = VoidProgress()
+) -> List[str]:
     """
     Sort lines from multiple input files by merging **previously separately sorted** files. Save the sorted lines as batches in the specified output directory.
 
@@ -238,8 +240,10 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
 
     :param input_paths: Iterable of paths to input files.
     :param output_dir: Directory to store the result batch files.
+    :param progress: An instance of the Progress class to track and report progress. Default is VoidProgress.
     :return: List of paths to the result output batch files.
     """
+    progress.report_start()
     if any(get_parent_path(path) == output_dir for path in input_paths):
         raise ValueError("The output directory must differ from the input directory.")
     make_dir(output_dir)
@@ -286,5 +290,8 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
                 except StopIteration:
                     values_with_generators.pop(-1)
                     if len(values_with_generators) == 0:
+                        progress.report_done()
                         return output_paths
+        progress.report((file_number + 1) / generator_count)
+    progress.report_done()
     return output_paths

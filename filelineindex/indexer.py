@@ -14,6 +14,7 @@ from filelineindex.core.filetools import (
     write,
     yield_from_files,
 )
+from filelineindex.progress import Progress, VoidProgress
 
 
 class IndexerOptions:
@@ -30,7 +31,7 @@ class IndexerOptions:
         wanted_file_count: Optional[int] = None,
     ):
         """
-        Initializes IndexerOptions.
+        Initialize IndexerOptions.
 
         :param min_file_count: Minimum allowed file count.
         :param max_file_count: Maximum allowed file count.
@@ -80,7 +81,7 @@ class Indexer:
 
     def __init__(self, resource_dir: str, options: IndexerOptions = IndexerOptions()):
         """
-        Initializes the Indexer.
+        Initialize the Indexer.
 
         :param resource_dir: The directory where the indexer stores its data.
         :param options: Options for configuring the behavior of the indexer.
@@ -117,7 +118,9 @@ class Indexer:
         """Delete index data by removing associated resources."""
         remove_dir(self.__resource_dir)
 
-    def index(self, file_paths: List[str]) -> LineIndex:
+    def index(
+        self, file_paths: List[str], progress: Progress = VoidProgress()
+    ) -> LineIndex:
         """
         Creates an index for a set of input files.
         The system must have enough remaining space to store the result (as much as input data size).
@@ -128,15 +131,18 @@ class Indexer:
         Note: The system must have enough remaining space to store the result (as much as input data size).
 
         :param file_paths: List of paths to input files.
+        :param progress: An instance of the Progress class to track and report progress. Default is VoidProgress.
         :return: An index created for the input files.
         :raises ValueError: If no files to index.
         """
         if len(file_paths) == 0:
             raise ValueError("No files to index.")
         make_empty_dir(self.__resource_dir)
-        return self.__index(lambda: yield_from_files(file_paths))
+        return self.__index(lambda: yield_from_files(file_paths), progress)
 
-    def index_lines(self, lines: List[str]) -> LineIndex:
+    def index_lines(
+        self, lines: List[str], progress: Progress = VoidProgress()
+    ) -> LineIndex:
         """
         Create an index for a set of input lines.
         The system must have enough remaining space to store the result (as much as input data size).
@@ -146,6 +152,7 @@ class Indexer:
         Note: The system must have enough remaining space to store the result (as much as input data size).
 
         :param lines: List of input lines.
+        :param progress: An instance of the Progress class to track and report progress. Default is VoidProgress.
         :return: An index created for the input lines.
         :raises ValueError: If no lines to index.
         """
@@ -159,7 +166,7 @@ class Indexer:
         make_empty_dir(self.__resource_dir)
         if len(lines) == 0:
             raise ValueError("No lines to index.")
-        return self.__index(lambda: __yield_lines())
+        return self.__index(lambda: __yield_lines(), progress)
 
     def load_index(self) -> LineIndex:
         """
@@ -171,18 +178,20 @@ class Indexer:
         batch_storage = FileLineBatchedStorage(self.__read_storage_data())
         return LineBatchedIndex(index_data, batch_storage)
 
-    def __find_optimal_file_count(self, line_count: int, total_size: int) -> int:
+    def __find_optimal_file_number(self, line_count: int, total_size: int) -> int:
         # TODO: Replace to a formula.
-        file_count = 1000
-        file_count = self.__options.wanted_file_count or file_count
-        file_count = max(file_count, self.__options.min_file_count)
-        file_count = min(file_count, line_count, self.__options.max_file_count)
-        return file_count
+        file_number = 1000
+        file_number = self.__options.wanted_file_count or file_number
+        file_number = max(file_number, self.__options.min_file_count)
+        file_number = min(file_number, line_count, self.__options.max_file_count)
+        return file_number
 
     def __index(
         self,
         line_generator_creator: Callable[[], Generator[str, None, None]],
+        progress: Progress,
     ) -> LineIndex:
+        progress.report_start()
         line_count = 0
         total_size = 0
         for line in line_generator_creator():
@@ -190,7 +199,7 @@ class Indexer:
             total_size += size_of_line(line)
         if line_count == 0:
             raise ValueError("No lines to index.")
-        optimal_file_count = self.__find_optimal_file_count(line_count, total_size)
+        optimal_file_number = self.__find_optimal_file_number(line_count, total_size)
         processed_size = 0
         last_line = ""
         start_lines = list()
@@ -200,9 +209,9 @@ class Indexer:
             pass
         line_generator = line_generator_creator()
         file_paths = list()
-        for file_number in range(optimal_file_count):
-            current_limit = total_size * (file_number + 1) // optimal_file_count
-            file_name = f"{convert_file_number(file_number, optimal_file_count)}.dat"
+        for file_number in range(optimal_file_number):
+            current_limit = total_size * (file_number + 1) // optimal_file_number
+            file_name = f"{convert_file_number(file_number, optimal_file_number)}.dat"
             file_path = join_paths(self.__resource_dir, file_name)
             file_paths.append(file_path)
             with open(file_path, "w", encoding=UTF_8) as data_file:
@@ -221,7 +230,9 @@ class Indexer:
                     storage = FileLineBatchedStorage(file_paths)
                     self.__write_index_data(index_data)
                     self.__write_storage_data(file_paths)
+                    progress.report_done()
                     return LineBatchedIndex(index_data, storage)
+            progress.report((file_number + 1) / optimal_file_number)
         raise RuntimeError("An unexpected algorithm branch.")
 
     def __read_index_data(self) -> BatchKeyData:
@@ -237,10 +248,10 @@ class Indexer:
 
     def __write_index_data(self, data: BatchKeyData) -> None:
         index_data_path = join_paths(self.__resource_dir, ".index")
-        write(data.last_line, index_data_path)
-        write(f"{len(data.batch_start_lines)}\n", index_data_path, append=True)
-        write(data.batch_start_lines, index_data_path, append=True)
+        write(index_data_path, data.last_line)
+        write(index_data_path, f"{len(data.batch_start_lines)}\n", append=True)
+        write(index_data_path, data.batch_start_lines, append=True)
 
     def __write_storage_data(self, paths: List[str]) -> None:
         storage_data_path = join_paths(self.__resource_dir, ".storage")
-        write([path + "\n" for path in paths], storage_data_path)
+        write(storage_data_path, [path + "\n" for path in paths])

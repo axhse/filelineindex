@@ -6,9 +6,8 @@ from filelineindex.preprocess import (
     fix_lines,
     merge_sorted_files,
     preprocess_lines,
+    sort_file,
     sort_files_separately,
-    sort_single_file,
-    sort_single_file_to_dir,
     split_file,
 )
 from tests.shared import assert_has_content, get_input_paths, temp_dir
@@ -59,18 +58,10 @@ def test_file_split_to_sizes(temp_dir):
     assert_has_content(temp_dir, expected_content)
 
 
-def test_sort_single_file(temp_dir):
+def test_sort_file(temp_dir):
     input_path = join_paths("input", "files_to_sort", "file1")
     output_path = join_paths(temp_dir, "sorted")
-    sort_single_file(input_path, output_path)
-    expected_text = "\n 2\n1\n2\n3\n"
-    assert read(output_path) == expected_text
-
-
-def test_sort_single_file_to_dir(temp_dir):
-    input_path = join_paths("input", "files_to_sort", "file1")
-    output_path = sort_single_file_to_dir(input_path, temp_dir)
-    assert output_path == join_paths(temp_dir, "file1")
+    sort_file(input_path, output_path)
     expected_text = "\n 2\n1\n2\n3\n"
     assert read(output_path) == expected_text
 

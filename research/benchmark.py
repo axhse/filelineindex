@@ -33,7 +33,7 @@ def check_lines(index: LineIndex, lines: List[str]) -> None:
 def benchmark(function: Callable, iterations: int, *args, **kwargs) -> None:
     elapsed_milliseconds = repeat(iterations)(function)(*args, **kwargs)
     print(
-        f"\x1B[34mElapsed milliseconds:    \x1B[1m\x1B[94m{round(elapsed_milliseconds)}\x1B[0m"
+        f"\x1B[34mElapsed milliseconds:   \x1B[1m\x1B[94m{round(elapsed_milliseconds)}\x1B[0m"
     )
 
 

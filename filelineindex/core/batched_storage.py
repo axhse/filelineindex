@@ -6,7 +6,14 @@ from filelineindex.core.filetools import read_first_line, read_lines
 
 
 class FileLineBatch(LineBatch):
+    """Represents a batch of lines stored in a file."""
+
     def __init__(self, file_path: str):
+        """
+        Initialize a new instance of the FileLineBatch class.
+
+        :param file_path: The path to the file.
+        """
         self.__file_path: str = file_path
         self.__first_line = None
         self.__last_line = None
@@ -43,7 +50,14 @@ class FileLineBatch(LineBatch):
 
 
 class FileLineBatchedStorage(LineBatchedStorage):
+    """Represents a storage of line batches from multiple files."""
+
     def __init__(self, file_paths: List[str]):
+        """
+        Initialize a new instance of the FileLineBatchedStorage class.
+
+        :param file_paths: The list of paths to the files.
+        """
         self.__batches = [FileLineBatch(file_path) for file_path in file_paths]
 
     def get(self, batch_number: int) -> FileLineBatch:
