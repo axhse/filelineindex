@@ -220,9 +220,10 @@ def merge_sorted_files(input_paths: Iterable[str], output_dir: str) -> List[str]
                     value = next(generator)
                     while value == last_value:
                         value = next(generator)
-                    for index in range(generator_count):
+                    values_with_generators.pop(-1)
+                    for index in range(len(values_with_generators) + 1):
                         if (
-                            index + 1 == generator_count
+                            index == len(values_with_generators)
                             or value > values_with_generators[index][0]
                         ):
                             values_with_generators.insert(index, (value, generator))
